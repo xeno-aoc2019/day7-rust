@@ -139,6 +139,7 @@ struct VM {
     ip: usize,
     in_p: i32,
     out_p: i32,
+    out_rp: i32,
     halted: bool,
     interrupted: bool,
     inputs: Vec<i32>,
@@ -152,6 +153,7 @@ impl VM {
             ip: 0,
             in_p: 0,
             out_p: 0,
+            out_rp: 0,
             halted: false,
             interrupted: false,
             inputs,
@@ -345,6 +347,13 @@ impl VM {
         self.interrupted = false;
     }
 
+    fn read_output(&mut self) -> i32 {
+        println!("READ OUTPUT: {} {}", self.outputs.len(), self.out_rp);
+        let outv = self.outputs[self.out_rp as usize];
+        self.out_rp += 1;
+        outv
+    }
+
     fn exec_inst(&mut self) {
         let (instr, modes) = self.fetch_instr();
         let opcode = instr.opcode;
@@ -386,20 +395,24 @@ impl VM {
 }
 
 fn main() {
-    // let program = read_program();
-    let program = vec!(3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0);
+    let program = read_program();
+    // let program = vec!(3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0);
     // let program = vec!(3,0,4,0,99);
 
-    let mut vm = VM::new(program.clone(), vec!());
-    vm.run();
-    vm.add_input(1);
-    println!("{}", vm);
-    vm.resume();
-    vm.add_input(4);
-    vm.resume();
+//    let mut vm = VM::new(program.clone(), vec!());
+//    vm.run();
+//    vm.add_input(1);
+//    println!("{}", vm);
+//    vm.resume();
+//    vm.add_input(4);
+//    vm.resume();
 
     // let value = test_amps(program.clone(), vec!(4, 3, 2, 1, 0));
-/*
+
+    task2(program);
+}
+
+fn task1(program: Vec<i32>) {
     let mut top_value = 0;
     for perm in gen_perms() {
         let value = test_amps(program.clone(), perm);
@@ -407,10 +420,20 @@ fn main() {
             top_value = value;
         }
     }
-
-    println!("Solution: {}", top_value);
-    */
+    println!("Solution 1: {}", top_value);
 }
+
+fn task2(program: Vec<i32>) {
+    let mut top_value = 0;
+    for perm in gen_perms59() {
+        let value = test_amps_2(program.clone(), perm);
+        if value > top_value {
+            top_value = value;
+        }
+    }
+    println!("Solution 2: {}", top_value);
+}
+
 
 fn gen_perms() -> Vec<Vec<i32>> {
     let mut res = vec!();
@@ -445,6 +468,38 @@ fn gen_perms() -> Vec<Vec<i32>> {
     res
 }
 
+fn gen_perms59() -> Vec<Vec<i32>> {
+    let mut res = vec!();
+    let mut used = vec!(false, false, false, false, false, false, false, false, false, false);
+    for a1 in 5..10 {
+        used[a1] = true;
+        for a2 in 5..10 {
+            if !used[a2] {
+                used[a2] = true;
+                for a3 in 5..10 {
+                    if !used[a3] {
+                        used[a3] = true;
+                        for a4 in 5..10 {
+                            if !used[a4] {
+                                used[a4] = true;
+                                for a5 in 5..10 {
+                                    if !used[a5] {
+                                        res.push(vec!(a1 as i32, a2 as i32, a3 as i32, a4 as i32, a5 as i32));
+                                    }
+                                }
+                                used[a4] = false;
+                            }
+                        }
+                        used[a3] = false;
+                    }
+                }
+                used[a2] = false
+            }
+        }
+        used[a1] = false
+    }
+    res
+}
 
 fn test_amps(program: Vec<i32>, params: Vec<i32>) -> i32 {
     let mut vm1: VM = VM::new(program.clone(), vec!(params[0]));
@@ -462,6 +517,38 @@ fn test_amps(program: Vec<i32>, params: Vec<i32>) -> i32 {
     return vm5.outputs[0];
 }
 
+fn test_amps_2(program: Vec<i32>, params: Vec<i32>) -> i32 {
+    let mut vm1: VM = VM::new(program.clone(), vec!(params[0]));
+    let mut vm2: VM = VM::new(program.clone(), vec!(params[1]));
+    let mut vm3: VM = VM::new(program.clone(), vec!(params[2]));
+    let mut vm4: VM = VM::new(program.clone(), vec!(params[3]));
+    let mut vm5: VM = VM::new(program.clone(), vec!(params[4]));
+
+    vm1.add_input(0);
+    vm1.run();
+    vm2.add_input(vm1.read_output());
+    vm2.run();
+    vm3.add_input(vm2.read_output());
+    vm3.run();
+    vm4.add_input(vm3.read_output());
+    vm4.run();
+    vm5.add_input(vm4.read_output());
+    vm5.run();
+
+    while !vm5.halted {
+        vm1.add_input(vm5.read_output());
+        vm1.resume();
+        vm2.add_input(vm1.read_output());
+        vm2.resume();
+        vm3.add_input(vm2.read_output());
+        vm3.resume();
+        vm4.add_input(vm3.read_output());
+        vm4.resume();
+        vm5.add_input(vm4.read_output());
+        vm5.resume();
+    }
+    return vm5.read_output();
+}
 
 fn read_program() -> Vec<i32> {
     if let Ok(lines) = getLines("input.txt") {
