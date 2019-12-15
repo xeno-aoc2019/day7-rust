@@ -345,14 +345,28 @@ impl VM {
 }
 
 fn main() {
-    let program = read_program();
-//    let program = vec!(3, 0, 4, 0, 99);
-//    let program = vec!(1, 0, 0, 0, 99);
-//    let program = vec!(3, 12, 6, 12, 15, 1, 13, 14, 13, 4, 13, 99, -1, 0, 1, 9);
-//    let program = vec!(3, 3, 1105, -1, 9, 1101, 0, 0, 12, 4, 12, 99, 1);
-    let mut vm: VM = VM::new(program, vec!(5));
-    vm.run();
+    // let program = read_program();
+    let program = vec!(3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0);
+
+    let value = test_amps(program.clone(), vec!(4, 3, 2, 1, 0));
+
+    println!("Solution: {}", value);
 }
+
+fn test_amps(program: Vec<i32>, params: Vec<i32>) -> i32 {
+    let mut vm1: VM = VM::new(program.clone(), vec!(params[0], 0));
+    vm1.run();
+    let mut vm2: VM = VM::new(program.clone(), vec!(params[1], vm1.outputs[0]));
+    vm2.run();
+    let mut vm3: VM = VM::new(program.clone(), vec!(params[2], vm2.outputs[0]));
+    vm3.run();
+    let mut vm4: VM = VM::new(program.clone(), vec!(params[3], vm3.outputs[0]));
+    vm4.run();
+    let mut vm5: VM = VM::new(program.clone(), vec!(params[4], vm4.outputs[0]));
+    vm5.run();
+    return vm5.outputs[0];
+}
+
 
 fn read_program() -> Vec<i32> {
     if let Ok(lines) = getLines("input.txt") {
