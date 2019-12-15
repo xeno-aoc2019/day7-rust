@@ -345,13 +345,55 @@ impl VM {
 }
 
 fn main() {
-    // let program = read_program();
-    let program = vec!(3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0);
+    let program = read_program();
+    // let program = vec!(3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0);
 
-    let value = test_amps(program.clone(), vec!(4, 3, 2, 1, 0));
+    // let value = test_amps(program.clone(), vec!(4, 3, 2, 1, 0));
 
-    println!("Solution: {}", value);
+    let mut top_value = 0;
+    for perm in gen_perms() {
+        let value = test_amps(program.clone(), perm);
+        if value > top_value {
+            top_value = value;
+        }
+    }
+
+    println!("Solution: {}", top_value);
 }
+
+fn gen_perms() -> Vec<Vec<i32>> {
+    let mut res = vec!();
+    let mut used = vec!(false, false, false, false, false);
+    for a1 in 0..5 {
+        used[a1] = true;
+        for a2 in 0..5 {
+            if !used[a2] {
+                used[a2] = true;
+                for a3 in 0..5 {
+                    if !used[a3] {
+                        used[a3] = true;
+                        for a4 in 0..5 {
+                            if !used[a4] {
+                                used[a4] = true;
+                                for a5 in 0..5 {
+                                    if !used[a5] {
+                                        res.push(vec!(a1 as i32, a2 as i32, a3 as i32, a4 as i32, a5 as i32));
+                                    }
+                                }
+                                used[a4] = false;
+                            }
+                        }
+                        used[a3] = false;
+                    }
+                }
+                used[a2] = false
+            }
+        }
+        used[a1] = false
+    }
+    res
+}
+
 
 fn test_amps(program: Vec<i32>, params: Vec<i32>) -> i32 {
     let mut vm1: VM = VM::new(program.clone(), vec!(params[0], 0));
