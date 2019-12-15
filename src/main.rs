@@ -114,11 +114,19 @@ impl fmt::Display for VM {
             }
             inp_ind += 1;
         }
-        write!(f, "output=");
+        write!(f, "[");
+        if self.halted {
+            write!(f, "H");
+        }
+        if self.interrupted {
+            write!(f, "I");
+        }
+        write!(f, "]");
+        write!(f, " output=");
         for value in self.outputs.iter() {
             write!(f, "{} ", value);
         }
-        write!(f, "program=");
+        write!(f, " program=");
         for value in self.program.iter() {
             write!(f, "{} ", value);
         }
@@ -132,6 +140,7 @@ struct VM {
     in_p: i32,
     out_p: i32,
     halted: bool,
+    interrupted: bool,
     inputs: Vec<i32>,
     outputs: Vec<i32>,
 }
@@ -144,6 +153,7 @@ impl VM {
             in_p: 0,
             out_p: 0,
             halted: false,
+            interrupted: false,
             inputs,
             outputs: vec!(),
         }
@@ -219,10 +229,14 @@ impl VM {
         self.ip = dest as usize;
     }
 
-    fn read_input(&mut self) -> i32 {
-        let input = self.inputs[self.in_p as usize];
-        self.in_p += 1;
-        input
+    fn read_input(&mut self) -> Option<i32> {
+        if self.has_input() {
+            let input = self.inputs[self.in_p as usize];
+            self.in_p += 1;
+            Some(input)
+        } else {
+            None
+        }
     }
 
     fn i_add(&mut self, modes: &ParaModes) {
@@ -247,12 +261,25 @@ impl VM {
         self.step(I_MUL.steps_next);
     }
 
+    fn has_input(&self) -> bool {
+        self.inputs.len() > (self.in_p as usize)
+    }
+
     fn i_input(&mut self) {
+        self.has_input();
         let adr = self.fetch_arg(1);
         let input = self.read_input();
-        self.write_mem(adr, input);
-        println!("I_INPUT [{}] input:{}", adr, input);
-        self.ip = self.ip + I_IN.steps_next;
+        match input {
+            Some(input) => {
+                self.write_mem(adr, input);
+                println!("I_INPUT [{}] input:{}", adr, input);
+                self.ip = self.ip + I_IN.steps_next;
+            }
+            None => {
+                println!("Interupting, awaiting IO");
+                self.interrupted = true;
+            }
+        }
     }
 
     fn i_output(&mut self) {
@@ -313,6 +340,11 @@ impl VM {
         self.halted = true;
     }
 
+    fn add_input(&mut self, input: i32) {
+        self.inputs.push(input);
+        self.interrupted = false;
+    }
+
     fn exec_inst(&mut self) {
         let (instr, modes) = self.fetch_instr();
         let opcode = instr.opcode;
@@ -330,14 +362,23 @@ impl VM {
         self.i_halt();
     }
 
-    fn is_halted(&self) -> bool {
-        self.halted
+    fn is_runnable(&self) -> bool {
+        !self.halted && !self.interrupted
+    }
+
+    fn resume(&mut self) {
+        println!("resuming vm={}", self);
+        self.interrupted = false;
+        while self.is_runnable() {
+            self.exec_inst();
+        }
+        println!("end vm={}", self);
     }
 
     fn run(&mut self) {
         println!("start vm={}", self);
         self.ip = 0;
-        while !self.is_halted() {
+        while self.is_runnable() {
             self.exec_inst();
         }
         println!("end vm={}", self);
@@ -345,11 +386,20 @@ impl VM {
 }
 
 fn main() {
-    let program = read_program();
-    // let program = vec!(3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0);
+    // let program = read_program();
+    let program = vec!(3, 15, 3, 16, 1002, 16, 10, 16, 1, 16, 15, 15, 4, 15, 99, 0, 0);
+    // let program = vec!(3,0,4,0,99);
+
+    let mut vm = VM::new(program.clone(), vec!());
+    vm.run();
+    vm.add_input(1);
+    println!("{}", vm);
+    vm.resume();
+    vm.add_input(4);
+    vm.resume();
 
     // let value = test_amps(program.clone(), vec!(4, 3, 2, 1, 0));
-
+/*
     let mut top_value = 0;
     for perm in gen_perms() {
         let value = test_amps(program.clone(), perm);
@@ -359,6 +409,7 @@ fn main() {
     }
 
     println!("Solution: {}", top_value);
+    */
 }
 
 fn gen_perms() -> Vec<Vec<i32>> {
@@ -396,8 +447,10 @@ fn gen_perms() -> Vec<Vec<i32>> {
 
 
 fn test_amps(program: Vec<i32>, params: Vec<i32>) -> i32 {
-    let mut vm1: VM = VM::new(program.clone(), vec!(params[0], 0));
+    let mut vm1: VM = VM::new(program.clone(), vec!(params[0]));
     vm1.run();
+    vm1.add_input(0);
+    vm1.resume();
     let mut vm2: VM = VM::new(program.clone(), vec!(params[1], vm1.outputs[0]));
     vm2.run();
     let mut vm3: VM = VM::new(program.clone(), vec!(params[2], vm2.outputs[0]));
